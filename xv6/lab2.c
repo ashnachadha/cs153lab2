@@ -10,11 +10,11 @@ int main(int argc, char *argv[])
       PScheduler();
     else if (atoi(argv[1]) == 2)
       test_donation();
-    else if (atoi(argv[1]) == 3)
-      test_ticktock();
+ /*   else if (atoi(argv[1]) == 3)
+      test_ticktock();*/
     exit(0);
 }
-
+/*
 int test_ticktock(void){
     int i,j,k;
     int id, pid, ret_pid, exit_status, tik, tok; 
@@ -47,7 +47,7 @@ int test_ticktock(void){
 	
     return 0;
 }
-
+*/
 
 int test_donation(void){
  
@@ -56,11 +56,11 @@ int test_donation(void){
     printf(1, " - default priority is %d\n", getpriority(getpid()));
     pid = fork();
     if(pid == 0){
-      /*for(j = 0;j < 50000; j++){
-        for(k = 0; k < 10000; k++){
-         asm("nop"); 
-        }
-      }*/
+      //  for(j = 0;j < 50000; j++){
+      //  for(k = 0; k < 10000; k++){
+      //  asm("nop"); 
+      //  }
+      // }
       printf(1, " - child #%d exit with priority %d\n", getpid(), getpriority(getpid()));
       exit(0);
     }

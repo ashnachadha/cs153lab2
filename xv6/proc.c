@@ -111,7 +111,7 @@ found:
   p->context = (struct context*)sp;
   memset(p->context, 0, sizeof *p->context);
   p->context->eip = (uint)forkret;
-
+  p->priority = 10;
   return p;
 }
 
@@ -420,24 +420,45 @@ scheduler(void)
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE)
+   struct proc *nextProc = ptable.proc;
+   int highestPriority = nextProc->priority; 
+   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if(p->state != RUNNABLE || p == nextProc)
         continue;
+       if(p->priority < highestPriority) {
+	highestPriority = p->priority;
+	// Increase priority of nextProc as it will now be waiting.
+        nextProc->priority = nextProc->priority - 1;
+	nextProc = p;
+      } else {
+	// this process is going to wait, so increase its priority if it
+        // is greater than 0. Keep it unchanged for priority 0 (min priority).
+        if(p->priority > 0) p->priority = p->priority - 1;
+      }
+    }
 
+    // Run the nextProc process which has the highest priority. Since this
+    // process runs, decrease its priority if it is less than 31 (max 
+    // priority). First check if nextProc is not null, otherwise just continue.
+
+    if(nextProc->priority < 31) {
+      nextProc->priority = nextProc->priority + 1;
+    }
+
+   
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
-
-      swtch(&(c->scheduler), p->context);
+      c->proc = nextProc;
+      switchuvm(nextProc);
+      nextProc->state = RUNNING;
+      
+      swtch(&(c->scheduler), nextProc->context);
       switchkvm();
 
       // Process is done running for now.
       // It should have changed its p->state before coming back.
       c->proc = 0;
-    }
     release(&ptable.lock);
 
   }
