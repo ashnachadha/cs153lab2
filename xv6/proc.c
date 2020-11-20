@@ -111,7 +111,7 @@ found:
   p->context = (struct context*)sp;
   memset(p->context, 0, sizeof *p->context);
   p->context->eip = (uint)forkret;
-  p->priority = 10;
+  p->priority = 10; // Default priority is 10
   return p;
 }
 
@@ -417,51 +417,45 @@ scheduler(void)
   for(;;){
     // Enable interrupts on this processor.
     sti();
-
-    // Loop over process table looking for process to run.
+    
     acquire(&ptable.lock);
-   struct proc *nextProc = ptable.proc;
-   int highestPriority = nextProc->priority; 
-   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE || p == nextProc)
-        continue;
-       if(p->priority < highestPriority) {
+    // Aging - if the process waits then its priority is
+    // increased. Otherwise, its priority is decreased.
+    struct proc *nextProc = ptable.proc;
+    int highestPriority = nextProc->priority;
+    
+    // This loop scans process table to find the the highest priority ready process.
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+      if(p->state != RUNNABLE || p == nextProc) continue;
+      
+      if(p->priority < highestPriority) {
 	highestPriority = p->priority;
-	// Increase priority of nextProc as it will now be waiting.
-        nextProc->priority = nextProc->priority - 1;
+	nextProc->priority -= 1;
 	nextProc = p;
       } else {
-	// this process is going to wait, so increase its priority if it
-        // is greater than 0. Keep it unchanged for priority 0 (min priority).
-        if(p->priority > 0) p->priority = p->priority - 1;
+	// The process is waiting, increase its priority if is greater than 0. 
+	// remains unchanged for priority 0 
+	if(p->priority > 0) p->priority = p->priority - 1;
       }
     }
 
-    // Run the nextProc process which has the highest priority. Since this
-    // process runs, decrease its priority if it is less than 31 (max 
-    // priority). First check if nextProc is not null, otherwise just continue.
-
+    // Run the nextProc process which has the highest priority. 
+    // Decrease if its priority is less than 31 
     if(nextProc->priority < 31) {
-      nextProc->priority = nextProc->priority + 1;
+      nextProc->priority += 1;
     }
+  
+    c->proc = nextProc;
+    switchuvm(nextProc);
+    nextProc->state = RUNNING;
 
-   
-      // Switch to chosen process.  It is the process's job
-      // to release ptable.lock and then reacquire it
-      // before jumping back to us.
-      c->proc = nextProc;
-      switchuvm(nextProc);
-      nextProc->state = RUNNING;
-      
-      swtch(&(c->scheduler), nextProc->context);
-      switchkvm();
+    swtch(&(c->scheduler), nextProc->context);
+    switchkvm();
 
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      c->proc = 0;
+    c->proc = 0;
     release(&ptable.lock);
 
-  }
+	}
 }
 
 // Enter scheduler.  Must hold only ptable.lock
